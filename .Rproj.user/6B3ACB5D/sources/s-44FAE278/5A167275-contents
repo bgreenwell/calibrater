@@ -18,11 +18,20 @@
 #'
 #'   \item{\code{"iso"}}{Isotonic (i.e., monotonic) calibration.}
 #'
+#'   \item{\code{"ns"}}{Natural (i.e., restricted) cubic splines; essentially,
+#'   a spline-based nonparametric version of Pratt scaling.}
+#'
 #' }
 #'
 #' @param pos.class Numeric/character string specifying which values in \code{y}
 #' correspond to the "positive" class. Default is \code{NULL}. (Must be
 #' specified) whenever \code{y} is not coded as 0/1.)
+#'
+#' @param probs Numeric vector specifying the probabilities for generating the
+#' quantiles of \code{prob} on the logit scale; these are used for the knot
+#' locations defining the spline whenever \code{method = "ns"}. The default
+#' corresponds to a good choice based on four knots; see
+#' Harrel (2015, pp. 26-28) for details.
 #'
 #' @return A \code{"calibrate"} object, which is essentially a list with the
 #' following components:
@@ -39,10 +48,15 @@
 #'
 #' }
 #'
+#' @references
+#' Harrell, Frank. (2015). Regression Modeling Strategies. Springer Series in
+#' Statistics. Springer International Publishing.
+#'
 #' @rdname calibrate
 #'
 #' @export
-calibrate <- function(prob, y, method = c("pratt", "iso"), pos.class = NULL) {
+calibrate <- function(prob, y, method = c("pratt", "iso", "ns"),
+                      pos.class = NULL, probs = c(0.05, 0.35, 0.65, 0.95)) {
   if (!all(sort(unique(y)) == c(0, 1))) {
     if (is.null(pos.class)) {
       stop("A value for `pos.class` is required whenever `y` is not a 0/1 ",
@@ -55,12 +69,18 @@ calibrate <- function(prob, y, method = c("pratt", "iso"), pos.class = NULL) {
   y <- y[ord]
   bs <- mean((prob - y) ^ 2, na.rm = TRUE)
   method <- match.arg(method)
-  prob.cal <- if (method == "pratt") {
+  prob.cal <- if (method %in% c("pratt", "ns")) {
     prob[prob == 0] <- 0.0001  # avoid -Inf
     prob[prob == 1] <- 0.9999  # avoid +Inf
     logit <- qlogis(prob)
     ind <- !is.infinite(logit)
-    cal <- glm(y[ind] ~ logit[ind], family = binomial(link = "logit"))
+    cal <- if (method == "ns") {
+      knots <- quantile(logit[ind], probs = probs)
+      glm(y[ind] ~ splines::ns(logit[ind], knots = knots),
+          family = binomial(link = "logit"))
+    } else {
+      glm(y[ind] ~ logit[ind], family = binomial(link = "logit"))
+    }
     prob <- prob[ind]
     prob.cal <- cal[["fitted.values"]]
   } else {
@@ -89,7 +109,7 @@ print.calibrate <- function(x, ...) {
 #'
 #' @export
 plot.calibrate <- function(x, ...) {
-  plot(x$probs[["original"]], x$probs[["calibrated"]],
+  plot(x$probs[["original"]], x$probs[["calibrated"]], type = "l",
        xlab = "Original probabilities", ylab = "Calibrated probabilities", ...)
   abline(0, 1, col = "red", lty = 2)
   legend("topleft", legend = "Perfectly calibrated", lty = 2, col = "red",
