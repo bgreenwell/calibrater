@@ -25,13 +25,22 @@
 #'
 #' @param pos.class Numeric/character string specifying which values in \code{y}
 #' correspond to the "positive" class. Default is \code{NULL}. (Must be
-#' specified) whenever \code{y} is not coded as 0/1.)
+#' specified whenever \code{y} is not coded as 0/1., where 1 is assumed to
+#' represent the "positive" class.)
 #'
 #' @param probs Numeric vector specifying the probabilities for generating the
 #' quantiles of \code{prob} on the logit scale; these are used for the knot
 #' locations defining the spline whenever \code{method = "ns"}. The default
 #' corresponds to a good choice based on four knots; see
 #' Harrel (2015, pp. 26-28) for details.
+#'
+#' @param refline.col The color to use for the reference line. Default is
+#' \code{"red"}.
+#'
+#' @param refline.lty The type of line to use for the reference line. Default is
+#' \code{"dashed"}.
+#'
+#' @param refline.lwd The width of the reference line. Default is 1.
 #'
 #' @return A \code{"calibrate"} object, which is essentially a list with the
 #' following components:
@@ -51,6 +60,9 @@
 #' @references
 #' Harrell, Frank. (2015). Regression Modeling Strategies. Springer Series in
 #' Statistics. Springer International Publishing.
+#'
+#' @importFrom stats binomial glm isoreg qlogis quantile
+#' @importFrom splines ns
 #'
 #' @rdname calibrate
 #'
@@ -76,6 +88,9 @@ calibrate <- function(prob, y, method = c("pratt", "iso", "ns"),
     ind <- !is.infinite(logit)
     cal <- if (method == "ns") {
       knots <- quantile(logit[ind], probs = probs)
+      d <- data.frame(y = y[ind], "x" = logit[ind])
+      #glm(y ~ splines::ns(x, knots = knots), data = d
+      #    family = binomial(link = "logit"))
       glm(y[ind] ~ splines::ns(logit[ind], knots = knots),
           family = binomial(link = "logit"))
     } else {
@@ -108,17 +123,68 @@ print.calibrate <- function(x, ...) {
 #' @rdname calibrate
 #'
 #' @export
-plot.calibrate <- function(x, ...) {
+plot.calibrate <- function(x, refline.col = "red", refline.lty ="dashed",
+                           refline.lwd = 1, ...) {
   plot(x$probs[["original"]], x$probs[["calibrated"]], type = "l",
        xlab = "Original probabilities", ylab = "Calibrated probabilities", ...)
-  abline(0, 1, col = "red", lty = 2)
+  abline(0, 1, col = refline.col, lty = refline.lty, lwd = refline.lwd)
   legend("topleft", legend = "Perfectly calibrated", lty = 2, col = "red",
          bty = "n")
   invisible()
 }
 
 
-lift <- function(prob, y, pos.class = NULL, cumulative = TRUE) {
+#' Gain and lift charts
+#'
+#' Validates predicted probabilities against a set of observed (binary)
+#' outcomes.
+#'
+#' @param prob Vector of predicted probabilities.
+#'
+#' @param y Vector of binary (i.e., 0/1) outcomes. If \code{y} is coded as
+#' anything other than 0/1, then you must specify which of the two categories
+#' represents the "positive" class (i.e., the class for which the probabilities
+#' specified in \code{prob} correspond to) via the \code{pos.class} argument.
+#'
+#' @param pos.class Numeric/character string specifying which values in \code{y}
+#' correspond to the "positive" class. Default is \code{NULL}. (Must be
+#' specified whenever \code{y} is not coded as 0/1, where 1 is assumed to
+#' represent the "positive" class.)
+#'
+#' @param cumulative Logical indicating whether or not to compute cumulative
+#' lift (i.e., gain). Default is \code{TRUE}.
+#'
+#' @param nbins Integer specifying the number of bins to use when computing
+#' lift. Default is 0, which corresponds to no binning. For example, setting
+#' \code{nbins = 10} will result in computing lift within each decile of the
+#' sorted probabilities.
+#'
+#' @param refline.col The color to use for the reference line. Default is
+#' \code{"red"}.
+#'
+#' @param refline.lty The type of line to use for the reference line. Default is
+#' \code{"dashed"}.
+#'
+#' @param refline.lwd The width of the reference line. Default is 1.
+#'
+#' @return A \code{"lift"} object, which is essentially a list with the
+#' following components:
+#' \describe{
+#'
+#'   \item{\code{"lift"}}{A numeric vector containing the computed lift values.}
+#'
+#'   \item{\code{"prop"}}{The corresponding proportion of cases associated with
+#'   each lift value.}
+#'
+#'   \item{\code{"cumulative"}}{Same value as that supplied via the
+#'   \code{cumulative} argument. (Used by the \code{plot.lift()} method.)}
+#'
+#' }
+#'
+#' @rdname lift
+#'
+#' @export
+lift <- function(prob, y, pos.class = NULL, cumulative = TRUE, nbins = 0) {
   if (!all(sort(unique(y)) == c(0, 1))) {
     if (is.null(pos.class)) {
       stop("A value for `pos.class` is required whenever `y` is not a 0/1 ",
@@ -129,8 +195,14 @@ lift <- function(prob, y, pos.class = NULL, cumulative = TRUE) {
   ord <- order(prob, decreasing = TRUE)
   prob <- prob[ord]
   y <- y[ord]
- #lift <- (cumsum(y) / seq_along(y)) / mean(y)
   prop <- seq_along(y) / length(y)
+  if (nbins > 0) {
+    bins <- cut(prop, breaks = nbins)
+    y <- tapply(y, INDEX = bins, FUN = sum)
+    prop <- seq_len(nbins) / nbins
+    y <- c(0, y)
+    prop <- c(0, prop)
+  }
   lift <- if (isTRUE(cumulative)) {
     cumsum(y)
   } else {
@@ -144,17 +216,19 @@ lift <- function(prob, y, pos.class = NULL, cumulative = TRUE) {
 #' @rdname lift
 #'
 #' @export
-plot.lift <- function(x, ...) {
+plot.lift <- function(x, refline.col = "red", refline.lty = "dashed",
+                      refline.lwd = 1, ...) {
   if (isTRUE(x[["cumulative"]])) {
     plot(x[["prop"]], x[["lift"]], type = "l", xlab = "Proportion of cases",
          ylab = "Cumulative lift", ...)
-    abline(0, max(x[["lift"]]), col = "red", lty = 2)
+    abline(0, max(x[["lift"]]), col = refline.col, lty = refline.lty,
+           lwd = refline.lwd)
     legend("bottomright", legend = "Baseline", lty = 2, col = "red",
            bty = "n")
   } else {
     plot(x[["prop"]], x[["lift"]], type = "l", xlab = "Proportion of cases",
          ylab = "Lift", ...)
-    abline(h = 1, col = "red", lty = 2)
+    abline(h = 1, col = refline.col, lty = refline.lty, lwd = refline.lwd)
     legend("topright", legend = "Baseline", lty = 2, col = "red",
            bty = "n")
   }

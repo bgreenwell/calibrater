@@ -6,11 +6,17 @@
 \alias{plot.calibrate}
 \title{External probability calibration}
 \usage{
-calibrate(prob, y, method = c("pratt", "iso"), pos.class = NULL)
+calibrate(
+  prob,
+  y,
+  method = c("pratt", "iso", "ns"),
+  pos.class = NULL,
+  probs = c(0.05, 0.35, 0.65, 0.95)
+)
 
 \method{print}{calibrate}(x, ...)
 
-\method{plot}{calibrate}(x, ...)
+\method{plot}{calibrate}(x, refline.col = "red", refline.lty = "dashed", refline.lwd = 1, ...)
 }
 \arguments{
 \item{prob}{Vector of predicted probabilities.}
@@ -28,11 +34,29 @@ Current options include:
 
   \item{\code{"iso"}}{Isotonic (i.e., monotonic) calibration.}
 
+  \item{\code{"ns"}}{Natural (i.e., restricted) cubic splines; essentially,
+  a spline-based nonparametric version of Pratt scaling.}
+
 }}
 
 \item{pos.class}{Numeric/character string specifying which values in \code{y}
 correspond to the "positive" class. Default is \code{NULL}. (Must be
-specified) whenever \code{y} is not coded as 0/1.)}
+specified whenever \code{y} is not coded as 0/1., where 1 is assumed to
+represent the "positive" class.)}
+
+\item{probs}{Numeric vector specifying the probabilities for generating the
+quantiles of \code{prob} on the logit scale; these are used for the knot
+locations defining the spline whenever \code{method = "ns"}. The default
+corresponds to a good choice based on four knots; see
+Harrel (2015, pp. 26-28) for details.}
+
+\item{refline.col}{The color to use for the reference line. Default is
+\code{"red"}.}
+
+\item{refline.lty}{The type of line to use for the reference line. Default is
+\code{"dashed"}.}
+
+\item{refline.lwd}{The width of the reference line. Default is 1.}
 }
 \value{
 A \code{"calibrate"} object, which is essentially a list with the
@@ -53,4 +77,8 @@ following components:
 \description{
 Validates predicted probabilities against a set of observed (binary)
 outcomes.
+}
+\references{
+Harrell, Frank. (2015). Regression Modeling Strategies. Springer Series in
+Statistics. Springer International Publishing.
 }
