@@ -42,6 +42,10 @@
 #'
 #' @param refline.lwd The width of the reference line. Default is 1.
 #'
+#' @param x An object of class \code{"calibrate"}.
+#'
+#' @param ... Additional optional argument to be passed on to other methods.
+#'
 #' @return A \code{"calibrate"} object, which is essentially a list with the
 #' following components:
 #' \describe{
@@ -61,8 +65,10 @@
 #' Harrell, Frank. (2015). Regression Modeling Strategies. Springer Series in
 #' Statistics. Springer International Publishing.
 #'
+#' @importFrom graphics abline legend
 #' @importFrom stats binomial glm isoreg qlogis quantile
 #' @importFrom splines ns
+#' @importFrom utils head
 #'
 #' @rdname calibrate
 #'
@@ -166,6 +172,10 @@ plot.calibrate <- function(x, refline.col = "red", refline.lty ="dashed",
 #' \code{"dashed"}.
 #'
 #' @param refline.lwd The width of the reference line. Default is 1.
+#'
+#' @param x An object of class \code{"lift"}.
+#'
+#' @param ... Additional optional argument to be passed on to other methods.
 #'
 #' @return A \code{"lift"} object, which is essentially a list with the
 #' following components:

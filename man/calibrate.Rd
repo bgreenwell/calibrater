@@ -50,6 +50,10 @@ locations defining the spline whenever \code{method = "ns"}. The default
 corresponds to a good choice based on four knots; see
 Harrel (2015, pp. 26-28) for details.}
 
+\item{x}{An object of class \code{"calibrate"}.}
+
+\item{...}{Additional optional argument to be passed on to other methods.}
+
 \item{refline.col}{The color to use for the reference line. Default is
 \code{"red"}.}
 

@@ -30,6 +30,8 @@ lift. Default is 0, which corresponds to no binning. For example, setting
 \code{nbins = 10} will result in computing lift within each decile of the
 sorted probabilities.}
 
+\item{x}{An object of class \code{"lift"}.}
+
 \item{refline.col}{The color to use for the reference line. Default is
 \code{"red"}.}
 
@@ -37,6 +39,8 @@ sorted probabilities.}
 \code{"dashed"}.}
 
 \item{refline.lwd}{The width of the reference line. Default is 1.}
+
+\item{...}{Additional optional argument to be passed on to other methods.}
 }
 \value{
 A \code{"lift"} object, which is essentially a list with the
